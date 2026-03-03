@@ -1,0 +1,32 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/__init__.py",
+    "app/*/__init__.py",
+    "app/infrastructure/database/mongodb.py",
+    "app/infrastructure/database/indexes.py",
+    "app/infrastructure/repositories/*",
+    "app/main.py",
+    "app/api/deps.py",
+    "app/api/v1/tickets.py",
+    "app/api/v1/auth.py",
+    "app/common/pagination.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "pass",
+    "\\.\\.\\.",
+]

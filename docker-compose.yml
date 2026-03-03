@@ -1,0 +1,58 @@
+# ============================================================
+# STTS Docker Compose — One-Command Setup
+# ============================================================
+# Usage:
+#   docker-compose up --build        (first run)
+#   docker-compose up                (subsequent runs)
+#   docker-compose down              (stop all services)
+#   docker-compose down -v           (stop + delete data)
+# ============================================================
+
+services:
+  # ── MongoDB Database ────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: stts-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── FastAPI Backend ─────────────────────────────────────────
+  backend:
+    build: ./backend
+    container_name: stts-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DB_NAME=stts
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Next.js Frontend ────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: stts-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+    driver: local
