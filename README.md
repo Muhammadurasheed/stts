@@ -1,6 +1,6 @@
 # STTS — Smart Triage Ticketing System
 
-**STTS** is an AI-powered support ticketing platform that eliminates manual ticket sorting. When a customer submits a ticket, the system reads the description, assigns a category (Billing, Technical Bug, Feature Request, Account, General), sets a priority level (High, Medium, Low), and delivers a confidence-scored reasoning — all in under 3 seconds — before any human agent touches it.
+**STTS** is an AI-powered support ticketing platform that eliminates manual ticket sorting. When a customer submits a ticket, the system reads the description, assigns a category (Billing, Technical Bug, Feature Request, Account, General), sets a priority level (High, Medium, Low), and delivers a confidence-scored reasoning, all in under 3 seconds, before any human agent touches it.
 
 > The system is fully functional end-to-end: customers submit tickets, Vertex AI classifies them, and authenticated agents manage them from a real-time dashboard.
 
@@ -8,21 +8,23 @@
 
 ## Tech Stack
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| **Backend** | Python 3.12 · FastAPI | Async-first, auto-docs (OpenAPI), Pydantic validation |
-| **Frontend** | Next.js 14 · TypeScript · Tailwind CSS | App Router, SSR-ready, type-safe |
-| **Database** | MongoDB · Motor (async driver) | Document model fits ticket evolution, async IO |
-| **AI Engine** | Google Vertex AI (Gemini 2.0 Flash) | Production-grade, GCP-billed, low-latency |
-| **Auth** | JWT + Google OAuth 2.0 | Stateless sessions, Google Sign-In with JIT provisioning |
-| **Infra** | Docker (local) · MongoDB Atlas (prod) | Environment-agnostic via `MONGODB_URL` |
+| Layer               | Technology                               | Why                                                      |
+| ------------------- | ---------------------------------------- | -------------------------------------------------------- |
+| **Backend**   | Python 3.12 · FastAPI                   | Async-first, auto-docs (OpenAPI), Pydantic validation    |
+| **Frontend**  | Next.js 14 · TypeScript · Tailwind CSS | App Router, SSR-ready, type-safe                         |
+| **Database**  | MongoDB · Motor (async driver)          | Document model fits ticket evolution, async IO           |
+| **AI Engine** | Google Vertex AI (Gemini 2.0 Flash)      | Production-grade, GCP-billed, low-latency                |
+| **Auth**      | JWT + Google OAuth 2.0                   | Stateless sessions, Google Sign-In with JIT provisioning |
+| **Infra**     | Docker (local) · MongoDB Atlas (prod)   | Environment-agnostic via `MONGODB_URL`                 |
 
 ---
 
 ## Core Features
 
 ### AI-Powered Triage (Vertex AI)
+
 Every submitted ticket is analyzed by **Gemini 2.0 Flash** through our custom LLM Gateway. The AI returns:
+
 - **Category**: Billing, Technical Bug, Feature Request, Account, or General
 - **Priority**: High, Medium, or Low
 - **Confidence Score**: 0.0–1.0 indicating classification certainty
@@ -31,6 +33,7 @@ Every submitted ticket is analyzed by **Gemini 2.0 Flash** through our custom LL
 The triage runs asynchronously — customers get instant confirmation while AI classifies in the background.
 
 ### 3-Layer LLM Resilience
+
 The [LLM Gateway](backend/app/infrastructure/llm/gateway.py) protects the system from AI failures with three defensive layers:
 
 1. **Multi-Model Fallback**: `gemini-2.0-flash → 1.5-flash → 1.5-pro → 1.0-pro` with instant pivot on quota/billing errors
@@ -40,6 +43,7 @@ The [LLM Gateway](backend/app/infrastructure/llm/gateway.py) protects the system
 **Result**: Tickets are never left unclassified, regardless of LLM availability.
 
 ### Authentication & Security
+
 - **JWT-based stateless auth** with 24-hour expiry and persistent login
 - **Google Sign-In** with real token verification via `google-auth` (not placeholder decoding)
 - **JIT Provisioning**: First-time Google users are auto-registered; existing email accounts are linked
@@ -48,6 +52,7 @@ The [LLM Gateway](backend/app/infrastructure/llm/gateway.py) protects the system
 - Auto-redirect: logged-in users visiting `/` are sent straight to `/dashboard`
 
 ### Agent Dashboard
+
 - **Kanban View**: Drag tickets between Open → In Progress → Resolved
 - **Table View**: Dense, sortable format for backlog management
 - **Real-Time Search**: Client-side filtering across title, email, and ID
@@ -55,7 +60,9 @@ The [LLM Gateway](backend/app/infrastructure/llm/gateway.py) protects the system
 - **Full CRUD**: Create, edit, delete tickets with confirmation modals
 
 ### Environment-Aware Database
+
 The backend connects to whatever `MONGODB_URL` points to — zero conditional logic:
+
 - **Local**: `run.py` auto-starts a Docker container (`mongo:7`) with a persistent named volume
 - **Production**: `MONGODB_URL` points to a MongoDB Atlas cluster
 
@@ -78,6 +85,7 @@ npm run dev          # http://localhost:3000
 ### Environment Variables
 
 **Backend** (`.env`):
+
 ```
 MONGODB_URL=mongodb://localhost:27017
 JWT_SECRET_KEY=<required — no default>
@@ -89,6 +97,7 @@ GCP_LOCATION=us-central1
 ```
 
 **Frontend** (`.env.local`):
+
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=<your Google OAuth client ID>
@@ -158,11 +167,11 @@ Customers never know the AI is down. Agents see lower confidence scores as a sig
 
 ## Documentation
 
-| Document | What It Covers |
-|----------|---------------|
-| [AI_JOURNEY.md](AI_JOURNEY.md) | AI collaboration log — prompts used, hallucinations caught, corrections made |
+| Document                                      | What It Covers                                                                                 |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [AI_JOURNEY.md](AI_JOURNEY.md)                   | AI collaboration log — prompts used, hallucinations caught, corrections made                  |
 | [PROJECT_WALKTHROUGH.md](PROJECT_WALKTHROUGH.md) | Full system walkthrough — user journeys, LLM Gateway internals, auth architecture, challenges |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Step-by-step deployment guide — MongoDB Atlas, Render (backend), Vercel (frontend) |
+| [DEPLOYMENT.md](DEPLOYMENT.md)                   | Step-by-step deployment guide — MongoDB Atlas, Render (backend), Vercel (frontend)            |
 
 ---
 
@@ -170,10 +179,12 @@ Customers never know the AI is down. Agents see lower confidence scores as a sig
 
 | Layer | Platform | Status |
 |-------|----------|--------|
-| Frontend | Vercel | Config ready (`frontend/vercel.json`) |
-| Backend | Render | Config ready (`backend/render.yaml`) |
-| Database | MongoDB Atlas | Cluster provisioned |
-| AI | Vertex AI (GCP) | `gen-lang-client-0669834943` with billing enabled |
+| **Frontend** | **Vercel** | **Live** ([stts.vercel.app](https://stts.vercel.app)) |
+| **Backend** | **Cloud Run** | **Live** (Auto-scale, Containerized) |
+| **Database** | **MongoDB Atlas** | **Live** (M0 Cluster) |
+| **AI** | **Vertex AI** | **Active** (Gemini 2.0 Flash) |
+
+> **Note**: The repository also contains legacy configuration for Render (`render.yaml`), but Google Cloud Run was chosen for the official submission due to its superior Vertex AI integration and enterprise-grade performance.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the full setup guide.
 
