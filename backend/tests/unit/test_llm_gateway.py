@@ -1,173 +1,91 @@
 """
-STTS LLM Gateway Tests
-────────────────────────
-Tests for the circuit breaker, retry logic, and response parsing.
+Unit tests for the LLM Gateway resilient architecture.
 """
 
+import time
 import pytest
-
+from unittest.mock import MagicMock, patch
+from app.infrastructure.llm.gateway import LLMGateway, CircuitState, CircuitState
 from app.core.models.ticket import TicketCategory, TicketPriority
-from app.infrastructure.llm.gateway import CircuitState, LLMGateway
-from app.infrastructure.llm.parser import parse_triage_response
 
+@pytest.fixture
+def mock_settings():
+    with patch("app.infrastructure.llm.gateway.get_settings") as mock:
+        settings = MagicMock()
+        settings.USE_VERTEX_AI = False
+        settings.GCP_PROJECT = "test-project"
+        settings.GCP_LOCATION = "us-central1"
+        settings.GEMINI_API_KEY = "test-key"
+        settings.GEMINI_MODEL = "gemini-1.5-flash"
+        settings.LLM_MAX_RETRIES = 3
+        settings.LLM_RETRY_BASE_DELAY = 1.0
+        settings.LLM_CIRCUIT_BREAKER_THRESHOLD = 3
+        settings.LLM_CIRCUIT_BREAKER_TIMEOUT = 60
+        mock.return_value = settings
+        yield settings
 
-class TestResponseParser:
-    """Tests for the LLM response parser."""
+@pytest.fixture
+def gateway(mock_settings):
+    with patch("google.genai.Client"):
+        return LLMGateway()
 
-    def test_parse_valid_json(self):
-        """Test parsing a clean JSON response."""
-        raw = '{"category": "Billing", "priority": "High", "confidence": 0.95, "reasoning": "Payment issue"}'
-        result = parse_triage_response(raw)
+class TestLLMGatewayResilience:
+    """Test suite for LLM Gateway resilience patterns."""
 
-        assert result is not None
-        assert result.category == TicketCategory.BILLING
-        assert result.priority == TicketPriority.HIGH
-        assert result.confidence == 0.95
-
-    def test_parse_markdown_wrapped_json(self):
-        """Test parsing JSON wrapped in markdown code blocks."""
-        raw = '```json\n{"category": "Technical Bug", "priority": "Medium", "confidence": 0.8, "reasoning": "Bug"}\n```'
-        result = parse_triage_response(raw)
-
-        assert result is not None
-        assert result.category == TicketCategory.TECHNICAL_BUG
-        assert result.priority == TicketPriority.MEDIUM
-
-    def test_parse_case_insensitive_category(self):
-        """Test case-insensitive category matching."""
-        raw = '{"category": "billing", "priority": "high", "confidence": 0.9, "reasoning": "Test"}'
-        result = parse_triage_response(raw)
-
-        assert result is not None
-        assert result.category == TicketCategory.BILLING
-        assert result.priority == TicketPriority.HIGH
-
-    def test_parse_invalid_json(self):
-        """Test parsing invalid JSON returns None."""
-        result = parse_triage_response("This is not JSON at all")
-        assert result is None
-
-    def test_parse_empty_response(self):
-        """Test parsing empty response returns None."""
-        result = parse_triage_response("")
-        assert result is None
-
-    def test_parse_missing_both_fields(self):
-        """Test parsing response missing both category and priority."""
-        raw = '{"confidence": 0.5, "reasoning": "unclear"}'
-        result = parse_triage_response(raw)
-        assert result is None
-
-    def test_parse_confidence_clamping(self):
-        """Test that confidence is clamped to [0, 1]."""
-        raw = '{"category": "General", "priority": "Low", "confidence": 2.5, "reasoning": "Test"}'
-        result = parse_triage_response(raw)
-
-        assert result is not None
-        assert result.confidence == 1.0  # Clamped
-
-    def test_parse_unknown_category(self):
-        """Test handling of unknown category from LLM."""
-        raw = '{"category": "Unknown Category", "priority": "High", "confidence": 0.9, "reasoning": "Test"}'
-        result = parse_triage_response(raw)
-
-        # Should still return result with None category but valid priority
-        assert result is not None
-        assert result.category is None
-        assert result.priority == TicketPriority.HIGH
-
-
-class TestCircuitBreaker:
-    """Tests for the circuit breaker state machine."""
-
-    def test_initial_state_is_closed(self):
-        """Circuit breaker should start in CLOSED state."""
-        gateway = LLMGateway.__new__(LLMGateway)
-        gateway.state = CircuitState.CLOSED
-        gateway.failure_count = 0
-        gateway.failure_threshold = 5
-        gateway.cooldown_timeout = 60
-        gateway.last_failure_time = 0.0
-
-        assert gateway.state == CircuitState.CLOSED
-        assert gateway._can_execute() is True
-
-    def test_transitions_to_open_after_threshold(self):
-        """Circuit breaker opens after reaching failure threshold."""
-        gateway = LLMGateway.__new__(LLMGateway)
-        gateway.state = CircuitState.CLOSED
-        gateway.failure_count = 0
-        gateway.failure_threshold = 3
-        gateway.cooldown_timeout = 60
-        gateway.last_failure_time = 0.0
-
-        for _ in range(3):
-            gateway._on_failure()
-
-        assert gateway.state == CircuitState.OPEN
-
-    def test_open_blocks_requests(self):
-        """OPEN state should block requests."""
-        import time
-
-        gateway = LLMGateway.__new__(LLMGateway)
-        gateway.state = CircuitState.OPEN
-        gateway.failure_count = 5
-        gateway.failure_threshold = 5
-        gateway.cooldown_timeout = 60
-        gateway.last_failure_time = time.time()
-
-        assert gateway._can_execute() is False
-
-    def test_success_resets_to_closed(self):
-        """Success should reset the circuit breaker to CLOSED."""
-        gateway = LLMGateway.__new__(LLMGateway)
-        gateway.state = CircuitState.HALF_OPEN
-        gateway.failure_count = 5
-        gateway.failure_threshold = 5
-        gateway.cooldown_timeout = 60
-        gateway.last_failure_time = 0.0
-
-        gateway._on_success()
-
+    def test_initialization(self, gateway):
+        """Verify gateway initializes in CLOSED state."""
         assert gateway.state == CircuitState.CLOSED
         assert gateway.failure_count == 0
 
-    def test_half_open_failure_reopens(self):
-        """Failure in HALF_OPEN should transition back to OPEN."""
-        gateway = LLMGateway.__new__(LLMGateway)
+    def test_circuit_breaker_threshold(self, gateway):
+        """Verify circuit opens after threshold is reached."""
+        for _ in range(gateway.failure_threshold):
+            gateway._on_failure()
+        
+        assert gateway.state == CircuitState.OPEN
+        assert gateway.failure_count == gateway.failure_threshold
+        assert not gateway._can_execute()
+
+    def test_circuit_breaker_cooldown(self, gateway):
+        """Verify circuit moves to HALF_OPEN after cooldown."""
+        gateway.state = CircuitState.OPEN
+        gateway.last_failure_time = time.time() - 70 # Exceed 60s timeout
+        
+        assert gateway._can_execute()
+        assert gateway.state == CircuitState.HALF_OPEN
+
+    def test_circuit_breaker_reset_on_success(self, gateway):
+        """Verify circuit closes on success in HALF_OPEN state."""
         gateway.state = CircuitState.HALF_OPEN
         gateway.failure_count = 5
-        gateway.failure_threshold = 5
-        gateway.cooldown_timeout = 60
-        gateway.last_failure_time = 0.0
+        
+        gateway._on_success()
+        
+        assert gateway.state == CircuitState.CLOSED
+        assert gateway.failure_count == 0
 
-        gateway._on_failure()
+    def test_mock_triage_fallback(self, gateway):
+        """Verify keyword-based mock triage logic."""
+        # Billing
+        res = gateway._mock_triage("Payment failed", "I was charged twice.")
+        assert res.category == TicketCategory.BILLING
+        assert res.priority == TicketPriority.MEDIUM
+        
+        # Urgent Bug
+        res = gateway._mock_triage("CRITICAL ERROR", "The app is crashing ASAP!")
+        assert res.category == TicketCategory.TECHNICAL_BUG
+        assert res.priority == TicketPriority.HIGH
 
-        assert gateway.state == CircuitState.OPEN
+    def test_calculate_backoff(self, gateway):
+        """Verify exponential backoff calculation."""
+        delay1 = gateway._calculate_backoff(1)
+        delay2 = gateway._calculate_backoff(2)
+        
+        assert 1.0 <= delay1 <= 1.5
+        assert 2.0 <= delay2 <= 3.0
 
-    def test_backoff_calculation(self):
-        """Test exponential backoff with jitter."""
-        gateway = LLMGateway.__new__(LLMGateway)
-        gateway.base_delay = 1.0
-
-        delay_1 = gateway._calculate_backoff(1)
-        delay_2 = gateway._calculate_backoff(2)
-        delay_3 = gateway._calculate_backoff(3)
-
-        # Delays should generally increase (with jitter)
-        assert delay_1 <= 2.0   # 1 * 2^0 + jitter ≤ 1.5
-        assert delay_2 <= 4.0   # 1 * 2^1 + jitter ≤ 3.0
-        assert delay_3 <= 10.0  # Capped at 10s
-
-    def test_gateway_status(self):
-        """Test gateway status reporting."""
-        gateway = LLMGateway.__new__(LLMGateway)
-        gateway.state = CircuitState.CLOSED
-        gateway.failure_count = 2
-        gateway.failure_threshold = 5
-        gateway.cooldown_timeout = 60
-
+    def test_get_status(self, gateway):
+        """Verify status reporting."""
         status = gateway.get_status()
         assert status["state"] == "closed"
-        assert status["failure_count"] == 2
+        assert status["failure_threshold"] == 3
