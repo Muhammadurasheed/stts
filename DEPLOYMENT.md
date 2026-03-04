@@ -96,6 +96,13 @@ In [Google Cloud Console](https://console.cloud.google.com) → APIs & Services 
 
 ## Local Development
 
+### One-Command Setup (Recommended)
+```bash
+# Root directory
+docker-compose up --build
+```
+
+### Manual Development Setup
 ```bash
 # Start Docker Desktop first
 

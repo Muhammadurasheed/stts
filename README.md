@@ -68,7 +68,16 @@ The backend connects to whatever `MONGODB_URL` points to — zero conditional lo
 
 ---
 
-## Quick Start
+### Quick Start
+
+#### 1. One-Command Local Setup (Recommended)
+This spins up the Backend, Frontend, and MongoDB instantly.
+```bash
+docker-compose up --build
+```
+
+#### 2. Manual Development Setup
+Use this for active development with hot-reloading:
 
 ```bash
 # Prerequisite: Docker Desktop running
