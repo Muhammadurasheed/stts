@@ -2,12 +2,12 @@
 
 ## Architecture
 
-| Layer | Platform | Notes |
-|-------|----------|-------|
-| Frontend | **Vercel** | Auto-deploys from GitHub main branch |
-| Backend | **Cloud Run** | High-performance serverless containers |
-| Database | **MongoDB Atlas** | Free tier M0 cluster (512 MB) |
-| AI | **Vertex AI** | GCP project `gen-lang-client-0669834943` |
+| Layer    | Platform                | Notes                                      |
+| -------- | ----------------------- | ------------------------------------------ |
+| Frontend | **Vercel**        | Auto-deploys from GitHub main branch       |
+| Backend  | **Cloud Run**     | High-performance serverless containers     |
+| Database | **MongoDB Atlas** | Free tier M0 cluster (512 MB)              |
+| AI       | **Vertex AI**     | GCP project `gen-lang-client-0669834943` |
 
 ---
 
@@ -26,7 +26,9 @@
 We use Cloud Run for its superior integration with Vertex AI and high-concurrency performance.
 
 ### 1. Enable Required APIs
+
 Run this in your terminal to enable the necessary GCP services:
+
 ```bash
 gcloud services enable \
   run.googleapis.com \
@@ -36,15 +38,19 @@ gcloud services enable \
 ```
 
 ### 2. Prepare Production Secrets
+
 You will need to set these in the Cloud Run console or via `gcloud` (see below).
 
 ### 3. Deploy via Cloud Build
+
 We have provided a `cloudbuild.yaml` in the root for automated deployment.
+
 ```bash
 gcloud builds submit --config cloudbuild.yaml .
 ```
 
 Alternative manual deploy (run from `backend/`):
+
 ```bash
 gcloud run deploy stts-backend \
   --source . \
@@ -53,7 +59,7 @@ gcloud run deploy stts-backend \
   --set-env-vars "MONGODB_URL=<your_atlas_url>,JWT_SECRET_KEY=<secret>,GOOGLE_CLIENT_ID=<id>,GEMINI_API_KEY=<key>,USE_VERTEX_AI=true,GCP_PROJECT=gen-lang-client-0669834943,GCP_LOCATION=us-central1,ALLOWED_ORIGINS=https://stts-frontend.vercel.app"
 ```
 
-> 💡 **Pro-Tip**: Cloud Run automatically injects service account credentials. Since you are deploying to the same project as your Vertex AI (`gen-lang-client-0669834943`), Vertex AI will "just work" without needing a JSON key file!
+> 💡 **Pro-Tip**: Cloud Run automatically injects service account credentials. Since you are deploying to the same project as your Vertex AI, Vertex AI will "just work" without needing a JSON key file!
 
 ---
 
@@ -97,12 +103,14 @@ In [Google Cloud Console](https://console.cloud.google.com) → APIs & Services 
 ## Local Development
 
 ### One-Command Setup (Recommended)
+
 ```bash
 # Root directory
 docker-compose up --build
 ```
 
 ### Manual Development Setup
+
 ```bash
 # Start Docker Desktop first
 
@@ -120,6 +128,7 @@ npm run dev            # http://localhost:3000
 ## Vercel + Cloud Run Note
 
 For running with Vertex AI on Cloud Run:
+
 1. Since the service runs **inside** GCP, it uses the Default Service Account.
 2. Ensure the service account has **"Vertex AI User"** permissions.
 3. No JSON key files are required for production!

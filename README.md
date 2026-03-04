@@ -71,12 +71,15 @@ The backend connects to whatever `MONGODB_URL` points to — zero conditional lo
 ### Quick Start
 
 #### 1. One-Command Local Setup (Recommended)
+
 This spins up the Backend, Frontend, and MongoDB instantly.
+
 ```bash
 docker-compose up --build
 ```
 
 #### 2. Manual Development Setup
+
 Use this for active development with hot-reloading:
 
 ```bash
@@ -186,14 +189,14 @@ Customers never know the AI is down. Agents see lower confidence scores as a sig
 
 ## Deployment
 
-| Layer | Platform | Status |
-|-------|----------|--------|
-| **Frontend** | **Vercel** | **Live** ([stts.vercel.app](https://stts.vercel.app)) |
-| **Backend** | **Cloud Run** | **Live** (Auto-scale, Containerized) |
-| **Database** | **MongoDB Atlas** | **Live** (M0 Cluster) |
-| **AI** | **Vertex AI** | **Active** (Gemini 2.0 Flash) |
+| Layer              | Platform                | Status                                                   |
+| ------------------ | ----------------------- | -------------------------------------------------------- |
+| **Frontend** | **Vercel**        | **Live** ([stts.vercel.app](https://stts.vercel.app)) |
+| **Backend**  | **Cloud Run**     | **Live** (Auto-scale, Containerized)               |
+| **Database** | **MongoDB Atlas** | **Live** (M0 Cluster)                              |
+| **AI**       | **Vertex AI**     | **Active** (Gemini 2.0 Flash)                      |
 
-> **Note**: The repository also contains legacy configuration for Render (`render.yaml`), but Google Cloud Run was chosen for the official submission due to its superior Vertex AI integration and enterprise-grade performance.
+> **Note**: The repository also contains legacy configuration for Render (`render.yaml`), but Google Cloud Run was chosen for the official submission major due to the limitation that comes with Render as regards to the tools we're using, which indules the fact that I couldn't  link up my VertexAI easily, unless I generate service key, and I couldn't also deploy my MongoDB dockerized image container. Other consideration includes its superior Vertex AI integration and enterprise-grade performance.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the full setup guide.
 
