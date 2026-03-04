@@ -26,33 +26,13 @@ from slowapi.errors import RateLimitExceeded
 # Initial logger for startup (will be replaced by setup_logging in app factory)
 logger = logging.getLogger(__name__)
 
-# --- SURGICAL DIAGNOSTIC & DNS FIX ---
-print("🚀 [BOOT] Starting STTS Backend Diagnostics...")
-try:
-    import dns.resolver
-    # Force public DNS for SRV resolution
-    resolver = dns.resolver.Resolver(configure=False)
-    resolver.nameservers = ['8.8.8.8', '8.8.4.4', '1.1.1.1']
-    dns.resolver.default_resolver = resolver
-    print("📡 [BOOT] dnspython is available. Nameservers set to Google/Cloudflare.")
-    
-    # Test SRV lookup specifically
-    try:
-        test_host = "_mongodb._tcp.cluster0.igsnyki.mongodb.net"
-        print(f"🔍 [BOOT] Attempting SRV lookup for: {test_host}")
-        answers = resolver.resolve(test_host, 'SRV')
-        print(f"✅ [BOOT] SRV Lookup Success! Found {len(answers)} record(s).")
-    except Exception as dns_err:
-        print(f"❌ [BOOT] SRV Lookup FAILED in diagnostic code: {dns_err}")
-except Exception as e:
-    print(f"❌ [BOOT] dnspython initialization failed: {e}")
-
+# --- STARTUP ENVIRONMENT SANITY CHECK ---
 import os
 # Force fix environment variables if they have literal quotes
 for key in ["MONGODB_URL", "JWT_SECRET_KEY", "GEMINI_API_KEY", "GOOGLE_CLIENT_ID", "ALLOWED_ORIGINS"]:
     val = os.environ.get(key, "")
     if val.startswith('"') and val.endswith('"'):
-        print(f"⚠️ [BOOT] Stripping literal quotes from {key}")
+        # Only print for real fixes to keep logs clean
         os.environ[key] = val[1:-1]
 # ------------------------------------
 
