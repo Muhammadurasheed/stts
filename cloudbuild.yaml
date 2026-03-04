@@ -1,0 +1,34 @@
+steps:
+  # 1. Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/stts-backend:latest', '.']
+    dir: 'backend'
+
+  # 2. Push the image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/stts-backend:latest']
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'stts-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/stts-backend:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'DEBUG=false,API_V1_PREFIX=/api/v1,MONGODB_DB_NAME=stts,USE_VERTEX_AI=true,GCP_PROJECT=gen-lang-client-0669834943,GCP_LOCATION=us-central1,MONGODB_URL=mongodb+srv://yekinirasheed2002_db_user:jkI8hCUZ0k2g3cbp@cluster0.igsnyki.mongodb.net/stts,JWT_SECRET_KEY=ln8n-NeMsCvpE6qfucZzLeYYNXkOfP0bPetaxzwH-1c,GOOGLE_CLIENT_ID=86114242633-fvt43g223qh9bdebg9c19i1r0a6hpk6m.apps.googleusercontent.com,GEMINI_API_KEY=AIzaSyAIscmUBcxnVwptkaV-XDQ8K2I57EyxURY,ALLOWED_ORIGINS=["https://stts-frontend.vercel.app"]'
+      - '--timeout'
+      - '300s'
+
+images:
+  - 'gcr.io/$PROJECT_ID/stts-backend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

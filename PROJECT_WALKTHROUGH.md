@@ -141,3 +141,23 @@ npm run dev            # http://localhost:3000
 ```
 
 Everything boots with a single command per layer. The `run.py` script handles venv activation and MongoDB container startup automatically, no manual steps.
+
+### 4. The Cloud Run Migration
+
+Midway through the deployment phase, we pivoted from Render to **Google Cloud Run** for the backend infrastructure. 
+
+**The Challenge**: 
+The initial plan with Render hit a "friction wall" regarding Vertex AI integration. External platforms require managing **Google Application Credentials** via JSON key files injected into the container. This created two problems:
+1. **Security Overhead**: Storing sensitive service account keys in environment variables or volume mounts increases the attack surface.
+2. **Authentication Lag**: Every request to Vertex AI required an explicit token exchange across network boundaries, which added millisecond latency to our <3s triage goal.
+3. **Complexity**: Configuring a local Docker container to act like a production cloud instance while talking to a remote GCP project created a "parity gap."
+
+**The Solution**: 
+By moving to Cloud Run, we Gains **Zero-Configuration Identity**. Since the backend now runs natively on Google's infrastructure:
+- It uses the **Compute Engine Default Service Account** out of the box.
+- It authenticates to Vertex AI via the **internal Metadata Server** — no keys, no passwords, just seamless project-level permissions.
+- **Latency reduction**: Requests stay within Google's backbone, shaving off precious milliseconds.
+
+This also unlock **Cloud Build**, allowing us to define the infrastructure-as-code in `cloudbuild.yaml`. It transformed the project from a "packaged app" to a **Cloud-Native Solution** that scales to zero when not in use, saving costs while delivering Google-grade performance.
+
+---

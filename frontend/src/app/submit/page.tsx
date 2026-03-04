@@ -158,13 +158,20 @@ export default function SubmitTicketPage() {
                 <div className="absolute -left-20 bottom-0 h-[300px] w-[300px] rounded-full bg-violet-600/8 blur-[100px]" />
             </div>
 
-            <nav className="relative z-10 flex items-center gap-3 px-8 py-6">
-                <Link href="/" className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold">
+            <nav className="relative z-10 flex items-center gap-4 px-8 py-6">
+                <Link href="/" className="group flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-white">
+                    <svg className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back
+                </Link>
+                <div className="h-4 w-px bg-zinc-800" />
+                <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold">
                         ST
                     </div>
-                    <span className="text-lg font-semibold tracking-tight">STTS</span>
-                </Link>
+                    <span className="text-sm font-semibold tracking-tight text-zinc-400">STTS</span>
+                </div>
             </nav>
 
             <main className="relative z-10 mx-auto max-w-2xl px-6 pt-12">

@@ -1,0 +1,15 @@
+.gcloudignore
+.git
+.gitignore
+node_modules/
+backend/venv/
+backend/.venv/
+frontend/.next/
+frontend/node_modules/
+*.log
+.env
+.env.production
+.gemini/
+.agents/
+brain/
+tmp/

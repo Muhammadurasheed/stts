@@ -5,7 +5,7 @@ gunicorn==23.0.0
 
 # MongoDB
 motor==3.7.0
-pymongo==4.10.1
+pymongo[srv]==4.10.1
 
 # Authentication
 python-jose[cryptography]==3.3.0

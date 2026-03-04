@@ -21,32 +21,39 @@
 
 ---
 
-## Step 2 — Backend: Render
+## Step 2 — Backend: Google Cloud Run
 
-1. Push this repo to GitHub
-2. Go to [render.com](https://render.com) → New → **Web Service**
-3. Connect your GitHub repo, select the `backend/` directory
-4. Settings:
-   - **Runtime**: Python 3
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. Add these **Environment Variables** in the Render dashboard:
+We use Cloud Run for its superior integration with Vertex AI and high-concurrency performance.
 
-```
-MONGODB_URL          = mongodb+srv://...   (your Atlas connection string)
-JWT_SECRET_KEY       = <generate a strong random string>
-GOOGLE_CLIENT_ID     = <your Google OAuth client ID>
-GEMINI_API_KEY       = <your Gemini API key>
-USE_VERTEX_AI        = true
-GCP_PROJECT          = gen-lang-client-0669834943
-GCP_LOCATION         = us-central1
-ALLOWED_ORIGINS      = https://your-app.vercel.app
-DEBUG                = false
+### 1. Enable Required APIs
+Run this in your terminal to enable the necessary GCP services:
+```bash
+gcloud services enable \
+  run.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  aiplatform.googleapis.com
 ```
 
-> ⚠️ **Vertex AI on Render**: For production Vertex AI authentication, you need to set the `GOOGLE_APPLICATION_CREDENTIALS` env var pointing to a service account JSON key, OR use the google-auth library's `impersonated_credentials`. The simplest path for now: set `USE_VERTEX_AI=false` and use `GEMINI_API_KEY` for production until you set up a service account.
+### 2. Prepare Production Secrets
+You will need to set these in the Cloud Run console or via `gcloud` (see below).
 
-6. Deploy — your backend URL will be `https://stts-backend.onrender.com`
+### 3. Deploy via Cloud Build
+We have provided a `cloudbuild.yaml` in the root for automated deployment.
+```bash
+gcloud builds submit --config cloudbuild.yaml .
+```
+
+Alternative manual deploy (run from `backend/`):
+```bash
+gcloud run deploy stts-backend \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars "MONGODB_URL=<your_atlas_url>,JWT_SECRET_KEY=<secret>,GOOGLE_CLIENT_ID=<id>,GEMINI_API_KEY=<key>,USE_VERTEX_AI=true,GCP_PROJECT=gen-lang-client-0669834943,GCP_LOCATION=us-central1,ALLOWED_ORIGINS=https://stts-frontend.vercel.app"
+```
+
+> 💡 **Pro-Tip**: Cloud Run automatically injects service account credentials. Since you are deploying to the same project as your Vertex AI (`gen-lang-client-0669834943`), Vertex AI will "just work" without needing a JSON key file!
 
 ---
 
