@@ -48,3 +48,13 @@ class TicketRepositoryInterface(ABC):
     async def update_triage(self, ticket_id: str, triage: TriageResult) -> Optional[TicketResponse]:
         """Update AI triage results for a ticket."""
         ...
+
+    @abstractmethod
+    async def update(self, ticket_id: str, data: dict) -> Optional[TicketResponse]:
+        """Update ticket content (title, description, category, priority)."""
+        ...
+
+    @abstractmethod
+    async def delete(self, ticket_id: str) -> bool:
+        """Delete a ticket by its ID."""
+        ...

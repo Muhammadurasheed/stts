@@ -77,6 +77,15 @@ class TicketStatusUpdate(BaseModel):
     )
 
 
+class TicketUpdate(BaseModel):
+    """Schema for updating ticket content (agent-facing)."""
+
+    title: Optional[str] = Field(None, min_length=3, max_length=200)
+    description: Optional[str] = Field(None, min_length=10, max_length=5000)
+    priority: Optional[TicketPriority] = None
+    category: Optional[TicketCategory] = None
+
+
 # ── AI Triage Result ──────────────────────────────────────────
 
 

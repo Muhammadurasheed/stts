@@ -57,13 +57,15 @@ class AgentLogin(BaseModel):
 
 
 class AgentResponse(BaseModel):
-    """Agent profile returned by the API (never includes password)."""
+    """Schema for agent profile response."""
 
-    id: str
+    id: str = Field(..., alias="_id" if False else "id")  # Handle alias in repo
     email: EmailStr
     full_name: str
-    role: AgentRole = AgentRole.AGENT
-    is_active: bool = True
+    role: AgentRole
+    is_active: bool
+    google_id: Optional[str] = None
+    picture_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

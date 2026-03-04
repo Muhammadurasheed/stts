@@ -14,7 +14,13 @@ class AgentRepositoryInterface(ABC):
     """Abstract interface for agent persistence operations."""
 
     @abstractmethod
-    async def create(self, agent_data: AgentCreate, hashed_password: str) -> AgentResponse:
+    async def create(
+        self, 
+        agent_data: AgentCreate, 
+        hashed_password: Optional[str] = None, 
+        google_id: Optional[str] = None,
+        picture_url: Optional[str] = None
+    ) -> AgentResponse:
         """Create a new agent. Returns the created agent."""
         ...
 

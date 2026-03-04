@@ -152,3 +152,60 @@ class TestAuthService:
 
         with pytest.raises(AuthenticationException):
             await service.get_current_agent("nonexistent_id")
+
+    @pytest.mark.asyncio
+    @patch("app.core.services.auth_service.id_token.verify_oauth2_token")
+    @patch("app.core.services.auth_service.create_access_token", return_value="mock_jwt_token")
+    async def test_google_login_new_user_success(self, mock_jwt, mock_verify, auth_service):
+        """Test Google login with a new user (JIT creation)."""
+        service, repo = auth_service
+        
+        # Mock Google Token content
+        mock_verify.return_value = {
+            "sub": "google_123",
+            "email": "new@gmail.com",
+            "name": "New User",
+            "picture": "http://image.com/pic.jpg"
+        }
+
+        # Mock repo: User not found by ID, not found by email
+        repo.get_by_google_id = AsyncMock(return_value=None)
+        repo.get_by_email.return_value = None
+        
+        repo.create.return_value = AgentResponse(
+            id="new_id",
+            email="new@gmail.com",
+            full_name="New User",
+            role=AgentRole.AGENT,
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        result = await service.google_login("valid_token")
+
+        assert result.access_token == "mock_jwt_token"
+        assert result.agent.email == "new@gmail.com"
+        repo.create.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.core.services.auth_service.verify_password", return_value=True)
+    async def test_login_blocks_google_user_password_bypass(self, mock_verify, auth_service):
+        """Test that Google-auth agents cannot log in via email/password."""
+        service, repo = auth_service
+        
+        # An agent that has a google_id but NO hashed_password
+        repo.get_by_email.return_value = {
+            "id": "google_user_id",
+            "email": "google@gmail.com",
+            "hashed_password": None,  # Critical: no password set
+            "google_id": "google_123",
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc),
+        }
+
+        data = AgentLogin(email="google@gmail.com", password="some_password")
+
+        with pytest.raises(AuthenticationException) as exc:
+            await service.login(data)
+        
+        assert "uses Google Sign-In" in str(exc.value)

@@ -153,3 +153,24 @@ class MongoTicketRepository(TicketRepositoryInterface):
             return None
 
         return self._to_response(result) if result else None
+
+    async def update(self, ticket_id: str, data: dict) -> Optional[TicketResponse]:
+        now = datetime.now(timezone.utc)
+        data["updated_at"] = now
+
+        try:
+            result = await self.collection.find_one_and_update(
+                {"_id": ObjectId(ticket_id)},
+                {"$set": data},
+                return_document=True,
+            )
+            return self._to_response(result) if result else None
+        except Exception:
+            return None
+
+    async def delete(self, ticket_id: str) -> bool:
+        try:
+            result = await self.collection.delete_one({"_id": ObjectId(ticket_id)})
+            return result.deleted_count > 0
+        except Exception:
+            return False

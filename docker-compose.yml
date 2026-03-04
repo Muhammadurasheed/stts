@@ -1,58 +1,63 @@
-# ============================================================
-# STTS Docker Compose — One-Command Setup
-# ============================================================
-# Usage:
-#   docker-compose up --build        (first run)
-#   docker-compose up                (subsequent runs)
-#   docker-compose down              (stop all services)
-#   docker-compose down -v           (stop + delete data)
-# ============================================================
+# ============================================
+# STTS Root Docker Compose
+# ============================================
+# Spins up Backend, Frontend, and MongoDB with a single command.
+# Usage: docker-compose up --build
 
 services:
-  # ── MongoDB Database ────────────────────────────────────────
+  # ── Database ─────────────────────────────────
   mongodb:
     image: mongo:7
     container_name: stts-mongodb
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
+      - stts-mongo-data:/data/db
+    networks:
+      - stts-network
 
-  # ── FastAPI Backend ─────────────────────────────────────────
+  # ── Backend ──────────────────────────────────
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: stts-backend
     ports:
       - "8000:8000"
-    env_file:
-      - ./backend/.env
     environment:
       - MONGODB_URL=mongodb://mongodb:27017
       - MONGODB_DB_NAME=stts
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-stts_production_secret_key_123}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
-      mongodb:
-        condition: service_healthy
-    restart: unless-stopped
+      - mongodb
+    networks:
+      - stts-network
 
-  # ── Next.js Frontend ────────────────────────────────────────
+  # ── Frontend ─────────────────────────────────
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
+        - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
     container_name: stts-frontend
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
     depends_on:
       - backend
-    restart: unless-stopped
+    networks:
+      - stts-network
+
+networks:
+  stts-network:
+    driver: bridge
 
 volumes:
-  mongo_data:
+  stts-mongo-data:
     driver: local

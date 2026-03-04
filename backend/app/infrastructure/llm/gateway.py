@@ -20,7 +20,7 @@ from google import genai
 from google.genai.types import GenerateContentConfig
 
 from app.config import get_settings
-from app.core.models.ticket import TriageResult
+from app.core.models.ticket import TriageResult, TicketCategory, TicketPriority
 from app.infrastructure.llm.parser import parse_triage_response
 from app.infrastructure.llm.prompts import TRIAGE_SYSTEM_PROMPT, build_triage_prompt
 
@@ -39,17 +39,30 @@ class LLMGateway:
     """
     Production-grade LLM Gateway with resilience patterns.
 
-    This gateway wraps the Google Gemini API and provides:
-    - Automatic retry with exponential backoff + jitter
-    - Circuit breaker to prevent cascading failures
-    - Graceful degradation when the LLM is unavailable
+    Supports two authentication modes:
+    - Vertex AI (GCP billing — reliable, production-grade)
+    - API Key (free tier — rate-limited, development use)
     """
 
     def __init__(self):
         settings = get_settings()
 
         # ── Gemini Client ──────────────────────────────────────
-        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        if settings.USE_VERTEX_AI and settings.GCP_PROJECT:
+            self.client = genai.Client(
+                vertexai=True,
+                project=settings.GCP_PROJECT,
+                location=settings.GCP_LOCATION,
+            )
+            logger.info(
+                "🚀 LLM Gateway initialized with Vertex AI (project=%s, location=%s)",
+                settings.GCP_PROJECT,
+                settings.GCP_LOCATION,
+            )
+        else:
+            self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            logger.info("🔑 LLM Gateway initialized with API Key (free tier)")
+
         self.model = settings.GEMINI_MODEL
 
         # ── Retry Config ───────────────────────────────────────
@@ -66,56 +79,106 @@ class LLMGateway:
 
     # ── Public API ─────────────────────────────────────────────
 
+    # Model Fallback Chain
+    MODEL_FALLBACKS = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash", 
+        "gemini-1.5-pro",
+        "gemini-1.0-pro"
+    ]
+
     async def classify_ticket(self, title: str, description: str) -> Optional[TriageResult]:
         """
-        Classify a support ticket using LLM with full resilience.
-
-        Returns:
-            TriageResult if successful, None if LLM unavailable (graceful degradation).
+        Classify a support ticket using LLM with multi-model fallback and mock safety net.
         """
         # Check circuit breaker
         if not self._can_execute():
-            logger.warning("Circuit breaker OPEN — skipping LLM call")
-            return None
+            logger.warning("Circuit breaker OPEN — using Mock Triage safety net")
+            return self._mock_triage(title, description)
 
-        # Retry loop with exponential backoff
-        for attempt in range(1, self.max_retries + 1):
-            try:
-                result = await self._call_llm(title, description)
-                self._on_success()
-                return result
+        # Try models in sequence
+        for model in self.MODEL_FALLBACKS:
+            # Skip if we already know this model is likely failing (could add model-specific state later)
+            
+            for attempt in range(1, self.max_retries + 1):
+                try:
+                    logger.info("Attempting triage with model: %s (Attempt %d)", model, attempt)
+                    result = await self._call_llm(title, description, model_name=model)
+                    self._on_success()
+                    return result
 
-            except Exception as e:
-                logger.warning(
-                    "LLM call attempt %d/%d failed: %s",
-                    attempt,
-                    self.max_retries,
-                    str(e),
-                )
+                except Exception as e:
+                    # If it's a 429/403/Exhausted/Billing error, pivot to next model immediately
+                    error_msg = str(e).upper()
+                    is_quota_error = any(k in error_msg for k in [
+                        "429", "403", "QUOTA", "EXHAUSTED", 
+                        "PERMISSION_DENIED", "BILLING", "RESOURCE_EXHAUSTED"
+                    ])
+                    
+                    logger.warning(
+                        "Model %s failed (Attempt %d): %s",
+                        model, attempt, str(e)
+                    )
 
-                if attempt < self.max_retries:
-                    delay = self._calculate_backoff(attempt)
-                    logger.info("Retrying in %.2fs...", delay)
-                    await asyncio.sleep(delay)
+                    if is_quota_error:
+                        logger.warning("Quota exhausted for %s. Pivoting to next model...", model)
+                        break # Break retry loop, move to next model in MODEL_FALLBACKS
 
-        # All retries exhausted
+                    if attempt < self.max_retries:
+                        delay = self._calculate_backoff(attempt)
+                        await asyncio.sleep(delay)
+
+        # All models and retries exhausted
         self._on_failure()
-        logger.error("All %d LLM retry attempts exhausted", self.max_retries)
-        return None
+        logger.error("All Gemini models exhausted. Triggering Mock Triage safety net.")
+        return self._mock_triage(title, description)
+
+    # ── Mock Triage (Keyword Heuristic) ────────────────────────
+    
+    def _mock_triage(self, title: str, description: str) -> TriageResult:
+        """Deterministic keyword-based triage for when AI is unavailable."""
+        text = (title + " " + description).lower()
+        
+        # Default
+        category = TicketCategory.GENERAL
+        priority = TicketPriority.MEDIUM
+        
+        # Category Heuristics
+        if any(w in text for w in ["billing", "invoice", "payment", "charge", "refund"]):
+            category = TicketCategory.BILLING
+        elif any(w in text for w in ["bug", "error", "broken", "crash", "fail", "issue"]):
+            category = TicketCategory.TECHNICAL_BUG
+        elif any(w in text for w in ["feature", "request", "suggest", "improve", "add"]):
+            category = TicketCategory.FEATURE_REQUEST
+        elif any(w in text for w in ["account", "login", "password", "access", "permission"]):
+            category = TicketCategory.ACCOUNT
+            
+        # Priority Heuristics
+        if any(w in text for w in ["urgent", "critical", "blocking", "emergency", "immediately", "asap"]):
+            priority = TicketPriority.HIGH
+        elif any(w in text for w in ["slow", "minor", "question", "eventually"]):
+            priority = TicketPriority.LOW
+            
+        return TriageResult(
+            category=category,
+            priority=priority,
+            confidence=0.5,
+            reasoning="Classified via Keyword Heuristic (AI Safety Net active)."
+        )
 
     # ── LLM Call ───────────────────────────────────────────────
 
-    async def _call_llm(self, title: str, description: str) -> Optional[TriageResult]:
+    async def _call_llm(self, title: str, description: str, model_name: str) -> Optional[TriageResult]:
         """Make the actual LLM API call and parse the response."""
         user_prompt = build_triage_prompt(title, description)
 
         response = await asyncio.to_thread(
             self.client.models.generate_content,
-            model=self.model,
+            model=model_name,
             contents=user_prompt,
             config=GenerateContentConfig(
                 system_instruction=TRIAGE_SYSTEM_PROMPT,
-                temperature=0.1,          # Low temp for consistent classification
+                temperature=0.1,
                 max_output_tokens=256,
             ),
         )

@@ -7,7 +7,7 @@ Core business logic for ticket lifecycle management.
 import logging
 from typing import Any, Optional
 
-from app.common.exceptions import NotFoundException, ValidationException
+from app.common.exceptions import NotFoundException, ValidationException, STTSException
 from app.core.interfaces.ticket_repo import TicketRepositoryInterface
 from app.core.models.ticket import (
     TicketCreate,
@@ -15,6 +15,7 @@ from app.core.models.ticket import (
     TicketResponse,
     TicketStatus,
     TicketStatusUpdate,
+    TicketUpdate,
 )
 from app.core.services.triage_service import TriageService
 
@@ -141,6 +142,44 @@ class TicketService:
         )
 
         return updated
+
+    async def update_ticket(
+        self,
+        ticket_id: str,
+        data: TicketUpdate,
+    ) -> TicketResponse:
+        """Update ticket content (title, description, category, priority)."""
+        # Verify ticket exists
+        existing = await self.ticket_repo.get_by_id(ticket_id)
+        if not existing:
+            raise NotFoundException("Ticket", ticket_id)
+
+        # Convert Pydantic model to dict, excluding None values
+        update_dict = data.model_dump(exclude_unset=True)
+        if not update_dict:
+            return existing
+
+        # Perform update
+        updated = await self.ticket_repo.update(ticket_id, update_dict)
+        if not updated:
+            raise NotFoundException("Ticket", ticket_id)
+
+        logger.info("Ticket %s updated: %s", ticket_id, list(update_dict.keys()))
+        return updated
+
+    async def delete_ticket(self, ticket_id: str) -> None:
+        """Delete a ticket."""
+        # Verify ticket exists
+        existing = await self.ticket_repo.get_by_id(ticket_id)
+        if not existing:
+            raise NotFoundException("Ticket", ticket_id)
+
+        # Perform deletion
+        success = await self.ticket_repo.delete(ticket_id)
+        if not success:
+            raise STTSException("Failed to delete ticket", status_code=500)
+
+        logger.info("Ticket %s deleted", ticket_id)
 
     @staticmethod
     def _validate_status_transition(current: TicketStatus, new: TicketStatus) -> None:

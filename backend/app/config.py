@@ -23,13 +23,24 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str = "stts"
 
     # ── JWT Authentication ───────────────────────────────────
-    JWT_SECRET_KEY: str = "CHANGE_ME_TO_A_STRONG_SECRET_KEY"
+    JWT_SECRET_KEY: str  # REQUIRED — no default, app crashes if not set
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours for persistent login
+
+    # ── Google OAuth 2.0 ─────────────────────────────────────
+    GOOGLE_CLIENT_ID: str = ""
+
+    # ── CORS ─────────────────────────────────────────────────
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
 
     # ── Google Gemini AI ─────────────────────────────────────
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.0-flash"
+
+    # ── Vertex AI (GCP) ──────────────────────────────────────
+    USE_VERTEX_AI: bool = False
+    GCP_PROJECT: str = ""
+    GCP_LOCATION: str = "us-central1"
 
     # ── LLM Resilience ───────────────────────────────────────
     LLM_MAX_RETRIES: int = 3

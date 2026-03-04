@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: stts-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_NAME
+        value: STTS API
+      - key: DEBUG
+        value: false
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: MONGODB_URL
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: stts
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: USE_VERTEX_AI
+        value: true
+      - key: GCP_PROJECT
+        value: gen-lang-client-0669834943
+      - key: GCP_LOCATION
+        value: us-central1
+      - key: ALLOWED_ORIGINS
+        value: https://stts-frontend.vercel.app
+      - key: LLM_MAX_RETRIES
+        value: 3
+      - key: LLM_RETRY_BASE_DELAY
+        value: 1.0
+      - key: LLM_CIRCUIT_BREAKER_THRESHOLD
+        value: 5
+      - key: LLM_CIRCUIT_BREAKER_TIMEOUT
+        value: 60
+    healthCheckPath: /health
