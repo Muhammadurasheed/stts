@@ -5,7 +5,7 @@
 | Layer | Platform | Notes |
 |-------|----------|-------|
 | Frontend | **Vercel** | Auto-deploys from GitHub main branch |
-| Backend | **Render** | Web service with free tier |
+| Backend | **Cloud Run** | High-performance serverless containers |
 | Database | **MongoDB Atlas** | Free tier M0 cluster (512 MB) |
 | AI | **Vertex AI** | GCP project `gen-lang-client-0669834943` |
 
@@ -65,23 +65,23 @@ gcloud run deploy stts-backend \
 4. Add these **Environment Variables**:
 
 ```
-NEXT_PUBLIC_API_URL          = https://stts-backend.onrender.com
+NEXT_PUBLIC_API_URL          = https://stts-backend-q3j54cq6va-uc.a.run.app
 NEXT_PUBLIC_GOOGLE_CLIENT_ID = <your Google OAuth client ID>
 ```
 
-5. Deploy — your frontend URL will be `https://stts-frontend.vercel.app`
+5. Deploy — your frontend URL will be `https://stts.vercel.app`
 
 ---
 
 ## Step 4 — Update Backend CORS
 
-Once you have your Vercel URL, go back to Render → Environment Variables and update:
+Once you have your Vercel URL, update the `ALLOWED_ORIGINS` in your `cloudbuild.yaml` (Step 3) or directly in the Cloud Run service environment variables:
 
 ```
-ALLOWED_ORIGINS = https://stts-frontend.vercel.app
+ALLOWED_ORIGINS = ["https://stts.vercel.app"]
 ```
 
-Redeploy the backend. Done.
+Redeploy the backend if needed. Done.
 
 ---
 
@@ -89,8 +89,8 @@ Redeploy the backend. Done.
 
 In [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials → your OAuth 2.0 Client:
 
-- Add to **Authorized JavaScript origins**: `https://stts-frontend.vercel.app`
-- Add to **Authorized redirect URIs**: `https://stts-frontend.vercel.app`
+- Add to **Authorized JavaScript origins**: `https://stts.vercel.app`
+- Add to **Authorized redirect URIs**: `https://stts.vercel.app`
 
 ---
 
@@ -110,13 +110,11 @@ npm run dev            # http://localhost:3000
 
 ---
 
-## Vercel + Vertex AI Note
+## Vercel + Cloud Run Note
 
-For full AI triage on Vercel/Render without a service account key file:
-1. Create a Service Account in GCP project `gen-lang-client-0669834943`
-2. Grant it the `Vertex AI User` role
-3. Download the JSON key
-4. Base64-encode it and set as `GOOGLE_SERVICE_ACCOUNT_JSON` on Render
-5. In `gateway.py`, load it via `google.oauth2.service_account.Credentials`
+For running with Vertex AI on Cloud Run:
+1. Since the service runs **inside** GCP, it uses the Default Service Account.
+2. Ensure the service account has **"Vertex AI User"** permissions.
+3. No JSON key files are required for production!
 
-This is optional — Mock Triage ensures tickets are always classified even without Vertex AI.
+This is handled automatically by our `cloudbuild.yaml` and `app/infrastructure/llm/gateway.py`. 🛡️🚀
